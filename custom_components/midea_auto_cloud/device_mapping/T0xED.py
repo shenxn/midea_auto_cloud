@@ -290,17 +290,6 @@ DEVICE_MAPPING = {
                 "quantify_21": {
                     "device_class": "enum",
                     "query": "quantify_21",
-                    "value_mapping": {
-                        200: "200ml",
-                        300: "300ml",
-                        400: "400ml",
-                        500: "500ml",
-                        600: "600ml",
-                        700: "700ml",
-                        800: "800ml",
-                        900: "900ml",
-                        1000: "1000ml",
-                    },
                     "options": {
                         "200ml": {"quantify_21": 200},
                         "300ml": {"quantify_21": 300},
@@ -317,6 +306,9 @@ DEVICE_MAPPING = {
                     "device_class": "enum",
                     "query": "quantify_22",
                     "options": {
+                        "200ml": {"quantify_22": 200},
+                        "300ml": {"quantify_22": 300},
+                        "400ml": {"quantify_22": 400},
                         "500ml": {"quantify_22": 500},
                         "600ml": {"quantify_22": 600},
                         "700ml": {"quantify_22": 700},
