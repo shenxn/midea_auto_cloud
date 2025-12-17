@@ -844,6 +844,18 @@
       },
       "wind_pressure": {
         "name": "Wind Pressure"
+      },
+      "cur_quantify": {
+        "name": "Current Quantify"
+      },
+      "quantify_21": {
+        "name": "Quantify 1"
+      },
+      "quantify_22": {
+        "name": "Quantify 2"
+      },
+      "quantify_23": {
+        "name": "Quantify 3"
       }
     },
     "sensor": {

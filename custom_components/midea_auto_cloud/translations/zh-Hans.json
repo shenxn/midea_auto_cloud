@@ -939,6 +939,18 @@
       },
       "wind_pressure": {
         "name": "风压"
+      },
+      "cur_quantify": {
+        "name": "当前定量"
+      },
+      "quantify_21": {
+        "name": "定量1"
+      },
+      "quantify_22": {
+        "name": "定量2"
+      },
+      "quantify_23": {
+        "name": "定量3"
       }
     },
     "sensor": {
