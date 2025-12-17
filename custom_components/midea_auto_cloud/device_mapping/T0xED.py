@@ -269,7 +269,76 @@ DEVICE_MAPPING = {
                     "unit_of_measurement": "mg/L",
                     "state_class": SensorStateClass.MEASUREMENT
                 },
-            }
-        }
-    }
+            },
+            Platform.SELECT: {
+                "cur_quantify": {
+                    "device_class": "enum",
+                    "query": "cur_quantify",
+                    "value_mapping": {
+                        0: "关定量",
+                        21: "定量1",
+                        22: "定量2",
+                        23: "定量3",
+                    },
+                    "options": {
+                        "关定量": {"cur_quantify": 0},
+                        "定量1": {"cur_quantify": 21},
+                        "定量2": {"cur_quantify": 22},
+                        "定量3": {"cur_quantify": 23},
+                    },
+                },
+                "quantify_21": {
+                    "device_class": "enum",
+                    "query": "quantify_21",
+                    "value_mapping": {
+                        200: "200ml",
+                        300: "300ml",
+                        400: "400ml",
+                        500: "500ml",
+                        600: "600ml",
+                        700: "700ml",
+                        800: "800ml",
+                        900: "900ml",
+                        1000: "1000ml",
+                    },
+                    "options": {
+                        "200ml": {"quantify_21": 200},
+                        "300ml": {"quantify_21": 300},
+                        "400ml": {"quantify_21": 400},
+                        "500ml": {"quantify_21": 500},
+                        "600ml": {"quantify_21": 600},
+                        "700ml": {"quantify_21": 700},
+                        "800ml": {"quantify_21": 800},
+                        "900ml": {"quantify_21": 900},
+                        "1000ml": {"quantify_21": 1000},
+                    },
+                },
+                "quantify_22": {
+                    "device_class": "enum",
+                    "query": "quantify_22",
+                    "options": {
+                        "500ml": {"quantify_22": 500},
+                        "600ml": {"quantify_22": 600},
+                        "700ml": {"quantify_22": 700},
+                        "800ml": {"quantify_22": 800},
+                        "900ml": {"quantify_22": 900},
+                        "1000ml": {"quantify_22": 1000},
+                        "2000ml": {"quantify_22": 2000},
+                        "3000ml": {"quantify_22": 3000},
+                    },
+                },
+                "quantify_23": {
+                    "device_class": "enum",
+                    "query": "quantify_23",
+                    "options": {
+                        "1000ml": {"quantify_23": 1000},
+                        "2000ml": {"quantify_23": 2000},
+                        "3000ml": {"quantify_23": 3000},
+                        "4000ml": {"quantify_23": 4000},
+                        "5000ml": {"quantify_23": 5000},
+                    },
+                },
+            },
+        },
+    },
 }
