@@ -1,5 +1,13 @@
-from homeassistant.const import Platform, UnitOfTemperature,  UnitOfPressure, UnitOfTime, UnitOfElectricPotential, \
-    UnitOfVolume, UnitOfMass, PERCENTAGE
+from homeassistant.const import (
+    Platform,
+    UnitOfTemperature,
+    UnitOfPressure,
+    UnitOfTime,
+    UnitOfElectricPotential,
+    UnitOfVolume,
+    UnitOfMass,
+    PERCENTAGE,
+)
 from homeassistant.components.sensor import SensorStateClass, SensorDeviceClass
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.switch import SwitchDeviceClass
@@ -421,7 +429,7 @@ DEVICE_MAPPING = {
                     "translation_key": "clean_interval_next_days_remaining"
                 },
             },
-        } 
+        }
     },
     "632009EN": {
         "rationale": ["off", "on"],
@@ -525,6 +533,118 @@ DEVICE_MAPPING = {
                 }
             }
         } 
-
-    }
+    },
+    "632009CN": {
+        "rationale": ["off", "on"],
+        "queries": [{}],
+        "entities": {
+            Platform.SWITCH: {
+                "power": {
+                    "device_class": SwitchDeviceClass.SWITCH,
+                },
+                "lock": {
+                    "device_class": SwitchDeviceClass.SWITCH,
+                    "translation_key": "child_lock",
+                },
+                "sleep": {
+                    "device_class": SwitchDeviceClass.SWITCH,
+                    "translation_key": "screen_off",
+                },
+                "heat": {
+                    "device_class": SwitchDeviceClass.SWITCH,
+                    "translation_key": "Heat_function",
+                },
+                "wash": {
+                    "device_class": SwitchDeviceClass.SWITCH,
+                    "translation_key": "filter_element_flushing",
+                },
+                "no_obsolete_water": {
+                    "device_class": SwitchDeviceClass.SWITCH,
+                    "translation_key": "no_obsolete_water",
+                },
+            },
+            Platform.SELECT: {
+                "cur_quantify": {
+                    "options": {
+                        "关定量": {"cur_quantify": 0},
+                        "定量1": {"cur_quantify": 21},
+                        "定量2": {"cur_quantify": 22},
+                        "定量3": {"cur_quantify": 23},
+                    },
+                    "translation_key": "cur_quantify",
+                }
+            },
+            Platform.NUMBER: {
+                "quantify_21": {
+                    "min": 200,
+                    "max": 1000,
+                    "step": 10,
+                    "translation_key": "quantify_21",
+                    "unit_of_measurement": "mL",
+                },
+                "quantify_22": {
+                    "min": 200,
+                    "max": 3000,
+                    "step": 10,
+                    "translation_key": "quantify_22",
+                    "unit_of_measurement": "mL",
+                },
+                "quantify_23": {
+                    "min": 1000,
+                    "max": 5000,
+                    "step": 10,
+                    "translation_key": "quantify_23",
+                    "unit_of_measurement": "mL",
+                },
+            },
+            Platform.SENSOR: {
+                "in_tds": {
+                    "device_class": SensorDeviceClass.WATER,
+                    "unit_of_measurement": "mg/L",
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "translation_key": "in_tds",
+                },
+                "out_tds": {
+                    "device_class": SensorDeviceClass.WATER,
+                    "unit_of_measurement": "mg/L",
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "translation_key": "out_tds",
+                },
+                "life_1": {
+                    "device_class": SensorDeviceClass.BATTERY,
+                    "unit_of_measurement": "%",
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "translation_key": "life_1",
+                },
+                "life_2": {
+                    "device_class": SensorDeviceClass.BATTERY,
+                    "unit_of_measurement": "%",
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "translation_key": "life_2_PCB",
+                },
+                "water_consumption": {
+                    "device_class": SensorDeviceClass.VOLUME,
+                    "unit_of_measurement": "L",
+                    "state_class": SensorStateClass.TOTAL_INCREASING,
+                    "translation_key": "water_consumption",
+                },
+                "custom_temperature_1": {
+                    "device_class": SensorDeviceClass.TEMPERATURE,
+                    "unit_of_measurement": "°C",
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "translation_key": "target_temperature",
+                },
+            },
+            Platform.BINARY_SENSOR: {
+                "heat_status": {
+                    "device_class": BinarySensorDeviceClass.RUNNING,
+                    "translation_key": "heat_status",
+                },
+                "lack_water": {
+                    "device_class": BinarySensorDeviceClass.PROBLEM,
+                    "translation_key": "lack_water",
+                },
+            },
+        },
+    },
 }
