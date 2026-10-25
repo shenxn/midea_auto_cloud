@@ -117,3 +117,16 @@ def test_heater_coupled_controls_keep_the_current_parameter():
 def test_hood_light_uses_the_vendor_setting_route():
     cfg = T0xB6.DEVICE_MAPPING['730006AE']['entities']['switch']['light']
     assert cfg['command'] == {'electronic_control_version':2,'type':'b6','b6_action':'setting','setting':'light'}
+
+
+def test_reported_program_does_not_depend_on_command_work_state():
+    cfg = T0xE1.DEVICE_MAPPING['7600002B']['entities']['select']['wash_mode']
+    obj = select_obj('wash_mode', cfg, {'mode':'eco_wash','work_status':'cancel'})
+    assert obj.current_option == 'eco_wash'
+
+
+def test_storage_duration_accepts_reported_four_hours():
+    cfg = T0xE1.DEVICE_MAPPING['7600002B']['entities']['select']['air_set_hour']
+    obj = select_obj('air_set_hour',cfg,{'air_set_hour':4})
+    assert obj.current_option == '4'
+    assert set(map(int,cfg['options'])) == set(range(73))

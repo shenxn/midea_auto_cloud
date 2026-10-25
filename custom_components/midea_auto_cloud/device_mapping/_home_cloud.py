@@ -58,9 +58,16 @@ def dishwasher(c):
     c["control_keys"] = ["common_down_type", "switch"]
     # Keep existing start-program selector; show idle separately, never send an invented idle program.
     e["select"]["wash_mode"]["status_key"] = "mode"
+    e["select"]["wash_mode"]["options"] = {
+        name: {"mode": values["mode"], "work_status": values["work_status"]}
+        for name, values in e["select"]["wash_mode"]["options"].items()
+    }
     e["select"]["wash_mode"]["options"]["待机（停止）"] = {"mode": "neutral_gear", "work_status": "power_off"}
     e["sensor"]["program_status"] = sensor("当前程序", attribute="mode", value_map={"neutral_gear": "待机"})
-    e["select"]["air_set_hour"]["options"]["0"] = {"air_set_hour": 0}
+    # Exact-model app version_1: storage duration 1..72 h, 0 means unset.
+    e["select"]["air_set_hour"]["options"] = {
+        str(hour): {"air_set_hour": hour} for hour in range(73)
+    }
     for key in ["wash_stage", "diy_main_wash", "diy_piao_wash", "diy_times"]:
         e["binary_sensor"].pop(key, None)
         e["sensor"][key] = sensor({"wash_stage":"洗涤阶段代码", "diy_main_wash":"自定义主洗参数", "diy_piao_wash":"自定义漂洗参数", "diy_times":"自定义次数"}[key])
