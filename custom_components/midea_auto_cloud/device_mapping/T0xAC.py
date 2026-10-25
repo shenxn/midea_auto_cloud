@@ -1,3 +1,4 @@
+from ._verified_central import extend_central_models
 from homeassistant.const import Platform, UnitOfTemperature, UnitOfPower, PRECISION_HALVES, PRECISION_WHOLE, \
     PERCENTAGE
 from ..const import CONCENTRATION_PARTS_PER_MILLION, CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
@@ -2496,3 +2497,7 @@ DEVICE_MAPPING = {
         }
     }
 }
+
+# Exact cloud models take precedence over the shared Colmo tuple and defaults.
+
+DEVICE_MAPPING = extend_central_models(DEVICE_MAPPING)
