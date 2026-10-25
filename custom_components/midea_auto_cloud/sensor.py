@@ -73,6 +73,10 @@ class MideaSensorEntity(MideaEntity, SensorEntity):
         attribute = self._config.get("attribute", self._entity_key)
         value = self._get_nested_value(attribute)
         
+        value_map = self._config.get("value_map", {})
+        if isinstance(value, (str, int, float)) and value in value_map:
+            return value_map[value]
+
         # Handle invalid string values
         if isinstance(value, str) and value.lower() in ['invalid', 'none', 'null', '']:
             return None

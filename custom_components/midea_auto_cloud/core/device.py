@@ -100,6 +100,7 @@ class MiedaDevice(threading.Thread):
         self._skipped_queries: set = set()
         self._cloud_queries = {}
         self._centralized = []
+        self._control_keys = set()
         self._calculate_get = []
         self._calculate_set = []
         self._default_values = {}
@@ -325,7 +326,7 @@ class MiedaDevice(threading.Thread):
 
     def _has_attribute(self, attribute: str) -> bool:
         attrs = self._attributes if isinstance(self._attributes, dict) else {}
-        if not attrs or attribute in attrs or attribute in LAMP_CONTROL_KEYS:
+        if not attrs or attribute in attrs or attribute in LAMP_CONTROL_KEYS or attribute in self._control_keys:
             return True
         if "." in attribute and attribute.replace(".", "_") in attrs:
             return True

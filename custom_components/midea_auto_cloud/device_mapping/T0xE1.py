@@ -846,3 +846,8 @@ DEVICE_MAPPING = {
         }
     }
 }
+
+
+from ._home_cloud import exact, dishwasher
+
+DEVICE_MAPPING = exact(DEVICE_MAPPING, 'default', '7600002B', dishwasher)

@@ -205,3 +205,8 @@ DEVICE_MAPPING = {
         }
     }
 }
+
+
+from ._home_cloud import exact, heater
+
+DEVICE_MAPPING = exact(DEVICE_MAPPING, 'default', '5111102Z', heater)

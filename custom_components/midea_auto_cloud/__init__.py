@@ -574,6 +574,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                                 pass
                             try:
                                 device.set_centralized(mapping.get("centralized", []))
+                                device._control_keys = set(mapping.get("control_keys", []))
                             except Exception:
                                 pass
                             try:

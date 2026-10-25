@@ -1095,3 +1095,8 @@ DEVICE_MAPPING = {
         },
     }
 }
+
+
+from ._home_cloud import exact, purifier
+
+DEVICE_MAPPING = exact(DEVICE_MAPPING, 'default_water_purifier', '63200872', purifier)

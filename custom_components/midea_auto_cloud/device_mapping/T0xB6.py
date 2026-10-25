@@ -358,3 +358,8 @@ DEVICE_MAPPING = {
         }
     }
 }
+
+
+from ._home_cloud import exact, hood
+
+DEVICE_MAPPING = exact(DEVICE_MAPPING, 'default', '730006AE', hood)
