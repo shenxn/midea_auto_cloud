@@ -34,10 +34,10 @@ def purifier(c):
     }
     c["entities"] = e = {p: {k: e[p][k] for k in keys} for p, keys in keep.items()}
     e["switch"]["leak_water_protection"]["attribute"] = "leak_water_protect"
-    for key, name in [("no_obsolete_water", "鲜水"), ("smart_no_obsolete_water", "智能鲜水"), ("antifreeze", "防冻"), ("buzzer", "提示音")]:
+    for key, name in [("no_obsolete_water", "鲜水"), ("smart_no_obsolete_water", "智能鲜水"), ("antifreeze", "防冻")]:
         e["switch"][key] = switch(name)
     # Gesture on/off shares a wire address with its mode; do not overwrite mode 3 with 1.
-    for key, name in [("gesture", "手势感应"), ("leaking_protect_status", "漏水保护状态"), ("installed_heating_module", "已安装加热模块"), ("out_water", "正在出水")]:
+    for key, name in [("buzzer", "提示音状态"), ("gesture", "手势感应"), ("leaking_protect_status", "漏水保护状态"), ("installed_heating_module", "已安装加热模块"), ("out_water", "正在出水")]:
         e["binary_sensor"][key] = binary(name)
     e["binary_sensor"]["standby_status"]["rationale"] = [0, 1]
     for key, name in [("gesture_mode", "手势模式代码"), ("error", "故障代码")]:
@@ -121,9 +121,9 @@ def heater(c):
     for key in ["type_machine", "capacity"]:
         e["select"].pop(key, None)
         e["sensor"][key] = sensor({"type_machine":"机型代码", "capacity":"容量代码"}[key])
-    for key, name in [("high_temp_lock", "高温锁"), ("voice_power", "语音")]:
+    for key, name in [("high_temp_lock", "高温锁")]:
         e["switch"][key] = switch(name)
-    for key, name in [("master_beep", "提示音状态"), ("cruise_antifreeze", "巡航防冻"), ("cruise_antifreeze_error", "巡航防冻故障"), ("appoint_master_switch", "预约总开关")]:
+    for key, name in [("voice_power", "语音状态"), ("master_beep", "提示音状态"), ("cruise_antifreeze", "巡航防冻"), ("cruise_antifreeze_error", "巡航防冻故障"), ("appoint_master_switch", "预约总开关")]:
         e.setdefault("binary_sensor", {})[key] = binary(name)
     for key, name in [("cold_hold_duration", "零冷水保温时长"), ("cold_conservation_duration", "零冷水节能时长")]:
         e["sensor"][key] = sensor(name, unit_of_measurement="min", device_class="duration")

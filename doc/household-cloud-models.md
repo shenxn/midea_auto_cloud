@@ -14,6 +14,8 @@ identifiers are not committed.
   The exact 63200872 app does not expose the generic quantitative presets or
   gesture settings: those reported values are read-only, not invented controls.
   Washing and draining remain available but are not activated by deployment.
+  Buzzer is read-only: a reversible live test did not confirm its write, and
+  the original state was restored.
 - Dishwasher: show neutral gear as idle/stop, support reported zero storage time,
   expose stage/count values without collapsing them to booleans, and add child
   lock, beep, knock-opening and diagnostic fields. Selecting a wash program
@@ -25,9 +27,11 @@ identifiers are not committed.
   b7 telemetry verification. Label calculated energy as estimated.
 - Heater: fix gas_lift_precent and explicit no-error display; retain current
   bath level/personal temperature when controlling those modes; use numeric
-  bubble values. Add supported voice/high-temperature-lock controls and other
+  bubble values. Add a high-temperature-lock control, reported voice state and other
   diagnostics. Remove unreported lamps and unsupported mode choices. Machine
-  type/capacity/power level are diagnostic, not speculative setters.
+  type/capacity/power level are diagnostic, not speculative setters. Voice
+  writes were not confirmed while the heater was off, so voice stays read-only;
+  the heater was not powered on just to test that setting.
 
 Only explicitly listed model control_keys bypass the reported-attribute filter.
 Sensor value_map is opt-in; other models retain their existing missing-value
