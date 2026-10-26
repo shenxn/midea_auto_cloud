@@ -46,3 +46,19 @@ def add_hydronic_module(config):
             'unit_of_measurement': '°C',
             'state_class': 'measurement',
         }
+
+    # All six entities share one logical device, while retaining their unique IDs.
+    for platform, keys in {
+        Platform.CLIMATE: ["hydronic_module"],
+        Platform.SWITCH: ["water_model_ptc", "water_model_power_save", "water_model_go_out"],
+        Platform.SENSOR: ["tw1_in_water_temp", "tw1_out_water_temp"],
+    }.items():
+        for key in keys:
+            e[platform][key]["device_group"] = "hydronic"
+    names = {"hydronic_module": "温控", "water_model_ptc": "电辅热",
+             "water_model_power_save": "节能", "water_model_go_out": "外出",
+             "tw1_in_water_temp": "进水温度", "tw1_out_water_temp": "出水温度"}
+    for configs in e.values():
+        for key, entity in configs.items():
+            if entity.get("device_group") == "hydronic":
+                entity["name"] = names[key]

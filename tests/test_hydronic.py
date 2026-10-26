@@ -83,3 +83,35 @@ def test_air_commands_cannot_pass_the_hydronic_surface():
     obj=hydronic()
     with pytest.raises(ValueError):asyncio.run(obj.async_set_attributes({'power':'on'}))
     obj.coordinator.async_set_attributes.assert_not_awaited()
+
+
+def test_six_hydronic_entities_share_one_group_without_grouping_air_entities():
+    e = DEVICE_MAPPING['22397061']['entities']
+    grouped = [(str(p), k) for p, configs in e.items() for k,c in configs.items() if c.get('device_group')=='hydronic']
+    assert len(grouped)==6
+    assert ('climate','hydronic_module') in grouped
+    assert 'device_group' not in e['climate']['thermostat']
+    for model in ['22397067','22397057','22397063']:
+        assert not any(c.get('device_group') for configs in DEVICE_MAPPING[model]['entities'].values() for c in configs.values())
+
+
+def test_device_split_preserves_entity_identity_and_cloud_transport(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from midea_auto_cloud import midea_entity as module
+
+    monkeypatch.setattr(module, 'Debouncer', MagicMock())
+    coordinator = SimpleNamespace(hass=MagicMock(), config_entry=None)
+    device = MagicMock()
+    def make(group):
+        return module.MideaEntity(coordinator,123,'AC','T0xAC','parent-serial','22397061','CAKW71','hydronic_module',device=device,config={'device_group':group})
+    old = make(None)
+    new = make('hydronic')
+    assert old.unique_id == new.unique_id
+    assert new._device_id == old._device_id == 123
+    assert new._device is old._device is device
+    assert old.device_info['identifiers'] == {('midea_auto_cloud','123')}
+    assert new.device_info['identifiers'] == {('midea_auto_cloud','123:hydronic')}
+    assert new.device_info['via_device'] == ('midea_auto_cloud','123')
+    assert new.device_info['name'] == '地暖水力模块'
+    assert 'serial_number' not in new.device_info

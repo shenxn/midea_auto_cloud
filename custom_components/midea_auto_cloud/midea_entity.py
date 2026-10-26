@@ -81,6 +81,16 @@ class MideaEntity(CoordinatorEntity[MideaDataUpdateCoordinator], Entity):
                 manufacturer=manu,
                 name=device_name,
             )
+            if self._config.get("device_group") == "hydronic":
+                # Only the device-registry grouping changes. Transport and entity
+                # unique IDs still belong to the existing cloud appliance.
+                self._attr_device_info = DeviceInfo(
+                    identifiers={(DOMAIN, f"{self._device_id}:hydronic")},
+                    via_device=(DOMAIN, str(self._device_id)),
+                    manufacturer=manu,
+                    model="Hydronic module",
+                    name="地暖水力模块",
+                )
             # Presentation attributes from config
             self._attr_native_unit_of_measurement = self._config.get("unit_of_measurement")
             self._attr_device_class = self._config.get("device_class")

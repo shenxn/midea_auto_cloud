@@ -23,3 +23,9 @@ timeout and away-mode behavior; no additional HA timer or automatic startup is
 introduced. The module and electric auxiliary heat remain off during deployment.
 Tests cover water/air isolation, setpoint bounds, manual coupling and actual
 entity methods. Private vendor codecs and live household captures are excluded.
+
+The six hydronic entities are grouped under a separate logical device named
+地暖水力模块, with via_device pointing to the selected indoor AC. Their original
+unique IDs and entity IDs remain in place so history and automations survive
+migration. The logical module does not borrow the indoor unit's serial number
+and continues to use its existing cloud coordinator and transport.
