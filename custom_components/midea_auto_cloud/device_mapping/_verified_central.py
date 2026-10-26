@@ -6,6 +6,8 @@ The device remains cloud controlled; this module adds no local transport.
 
 from copy import deepcopy
 
+from ._hydronic import add_hydronic_module
+
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import Platform
 
@@ -84,5 +86,7 @@ def extend_central_models(mappings: dict) -> dict:
                 },
             },
         }
+        if model == "22397061":
+            add_hydronic_module(config)
         result[model] = config
     return {**result, **mappings}

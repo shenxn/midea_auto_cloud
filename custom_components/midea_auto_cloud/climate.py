@@ -44,7 +44,7 @@ async def async_setup_entry(
         config_entry,
         async_add_entities,
         Platform.CLIMATE,
-        lambda coordinator, device, manufacturer, rationale, entity_key, ecfg: MideaClimateEntity(
+        lambda coordinator, device, manufacturer, rationale, entity_key, ecfg: (MideaHydronicClimateEntity if ecfg.get("hydronic_module") else MideaClimateEntity)(
             coordinator, device, manufacturer, rationale, entity_key, ecfg
         ),
     )
@@ -784,6 +784,46 @@ def _add_fan_only_derived_fan(entities, coordinator, device, manufacturer, ratio
             FAN_ONLY_ENTITY_KEY, config,
         )
     )
+
+
+class MideaHydronicClimateEntity(MideaClimateEntity):
+    """Isolate water-module commands from the indoor AC sharing its transport."""
+
+    async def async_set_attributes(self, attributes):
+        allowed = {"water_model_power", "water_model_temperature_auto", "water_model_temperature_set"}
+        if not isinstance(attributes, dict) or not set(attributes) <= allowed:
+            raise ValueError("Unsupported hydronic command")
+        await super().async_set_attributes({"single_control": 1, **attributes})
+
+    async def async_turn_on(self):
+        await self.async_set_attributes({"water_model_power": "on"})
+
+    async def async_turn_off(self):
+        await self.async_set_attributes({"water_model_power": "off"})
+
+    async def async_set_temperature(self, **kwargs):
+        import math
+
+        command = {}
+        if ATTR_TEMPERATURE in kwargs:
+            temperature = float(kwargs[ATTR_TEMPERATURE])
+            if not math.isfinite(temperature) or not 25 <= temperature <= 60:
+                raise ValueError("Hydronic water temperature must be 25–60°C")
+            if not temperature.is_integer():
+                raise ValueError("Hydronic water temperature uses whole degrees")
+            command.update(water_model_temperature_set=int(temperature), water_model_temperature_auto="off")
+        if ATTR_HVAC_MODE in kwargs:
+            mode = kwargs[ATTR_HVAC_MODE]
+            if mode not in self._key_hvac_modes:
+                raise ValueError("Hydronic module only supports off/heat")
+            command.update(self._key_hvac_modes[mode])
+        if command:
+            await self.async_set_attributes(command)
+
+    @property
+    def hvac_action(self):
+        # The water temperature is not evidence that the compressor is running.
+        return HVACAction.OFF if self.hvac_mode == HVACMode.OFF else None
 
 
 class MideaFanOnlyFanEntity(MideaEntity, FanEntity):
