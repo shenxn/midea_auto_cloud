@@ -20,13 +20,17 @@ source = (
     Path(__file__).resolve().parents[1]
     / "custom_components/midea_auto_cloud/__init__.py"
 )
-node = next(
-    n
-    for n in ast.parse(source.read_text()).body
-    if isinstance(n, ast.FunctionDef) and n.name == "get_device_mapping"
-)
+nodes = [
+    node
+    for node in ast.parse(source.read_text()).body
+    if (isinstance(node, ast.FunctionDef) and node.name == "get_device_mapping")
+    or (isinstance(node, ast.Assign) and any(
+        isinstance(target, ast.Name) and target.id == "_PLACEHOLDER_SN8"
+        for target in node.targets
+    ))
+]
 ns = {"re": re, "MideaLogger": SimpleNamespace(warning=lambda *a: None)}
-exec(compile(ast.Module(body=[node], type_ignores=[]), str(source), "exec"), ns)
+exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), ns)
 select_mapping = ns["get_device_mapping"]
 
 

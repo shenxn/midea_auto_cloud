@@ -91,6 +91,12 @@ def remove_device_config(hass: HomeAssistant, sn8):
         pass
 
 
+# Cloud often fills blank SN8 for subdevices (panels, curtains, etc.).
+# Matching that placeholder as a real sn8 key would skip category defaults
+# (issue #271: T0x21 electric-curtain hit the empty "00000000" profile).
+_PLACEHOLDER_SN8 = frozenset({"", "0", "00000000"})
+
+
 def get_device_mapping(
         device_mappings: dict,
         device_type: int,
@@ -118,8 +124,8 @@ def get_device_mapping(
                 result = config
                 break
 
-    # 2. 如果还没匹配到，再按 sn8 规则匹配
-    if result is None and sn8:
+    # 2. 如果还没匹配到，再按 sn8 规则匹配（跳过占位 sn8）
+    if result is None and sn8 and str(sn8) not in _PLACEHOLDER_SN8:
         for key, config in device_mappings.items():
             # 直接等于 / tuple 包含 / 正则匹配
             if (
@@ -150,8 +156,14 @@ def get_device_mapping(
 
 def _home_display_name(home_info, home_id) -> str:
     if isinstance(home_info, dict):
-        return home_info.get("name") or home_info.get("homeName") or f"家庭 {home_id}"
-    return str(home_info) if home_info else f"家庭 {home_id}"
+        raw = home_info.get("name") or home_info.get("homeName")
+    else:
+        raw = home_info
+    if raw is None or raw == "":
+        return f"家庭 {home_id}"
+    # Match config_flow normalization so names with spaces/NBSP stay stable.
+    normalized = re.sub(r"\s+", " ", str(raw), flags=re.UNICODE).strip()
+    return normalized or f"家庭 {home_id}"
 
 
 def _match_home_ids(selected_homes: list, homes: dict) -> list:
@@ -246,15 +258,20 @@ async def _ensure_msmart_home_api_route(cloud) -> None:
         await re_route()
 
 
-async def load_device_config(hass: HomeAssistant, device_type, sn8, subtype=None, category=None):
-    # def _ensure_dir_and_load(path_dir: str, path_file: str):
-    #     os.makedirs(path_dir, exist_ok=True)
-    #     return load_json(path_file, default={})
+async def load_device_config(
+    hass: HomeAssistant,
+    device_type,
+    sn8,
+    subtype=None,
+    category=None,
+    device_id=None,
+):
+    """Load builtin mapping, apply optional per-device overlay, then cloud stats.
 
-    # config_dir = hass.config.path(CONFIG_PATH)
-    # config_file = hass.config.path(f"{CONFIG_PATH}/{sn8}.json")
-    # raw = await hass.async_add_executor_job(_ensure_dir_and_load, config_dir, config_file)
-
+    External overlays live under ``.storage/midea_auto_cloud/mappings/``
+    (see ``mapping_overlay``); they are keyed by appliance ``device_id`` and
+    survive HACS upgrades of this integration package.
+    """
     json_data = {}
 
     device_path = f".device_mapping.{'T0x%02X' % device_type}"
@@ -275,9 +292,12 @@ async def load_device_config(hass: HomeAssistant, device_type, sn8, subtype=None
             f"sn8: {sn8}, subtype: {subtype}, category: {category}. "
         )
 
-    # save_data = {sn8: json_data}
-    # offload save_json as well
-    # await hass.async_add_executor_job(save_json, config_file, save_data)
+    from .mapping_overlay import apply_device_overlay
+
+    json_data = await hass.async_add_executor_job(
+        apply_device_overlay, hass, json_data, device_id
+    )
+
     try:
         from .device_mapping._cloud_stats import merge_cloud_stats_mapping
     except ImportError:
@@ -550,6 +570,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                                 lua_file=file,
                                 cloud=cloud,
                             )
+                            # Needed by T0x45 super-gateway panel/switch/query (spid).
+                            if info.get(CONF_SMART_PRODUCT_ID) is not None:
+                                device.attributes["smart_product_id"] = info.get(
+                                    CONF_SMART_PRODUCT_ID
+                                )
                             # lupa dofile is blocking — load codec off the event loop
                             await device.async_init_lua_runtime()
                             # 加载并应用设备映射（queries/centralized/calculate），并预置 attributes 键
@@ -560,6 +585,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
                                     info.get(CONF_SN8) or info.get("sn8"),
                                     device.subtype,
                                     device.category,
+                                    device_id=appliance_code,
                                 ) or {}
                             except Exception:
                                 mapping = {}

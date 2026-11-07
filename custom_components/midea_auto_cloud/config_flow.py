@@ -1,3 +1,4 @@
+import re
 import voluptuous as vol
 import logging
 import os
@@ -10,7 +11,15 @@ from homeassistant.core import callback
 from homeassistant.const import (
     CONF_TYPE,
 )
-import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 from .const import (
     CONF_ACCOUNT,
     CONF_PASSWORD,
@@ -28,6 +37,7 @@ from .const import (
 )
 from .core.cloud import get_midea_cloud
 from .core import session_store
+from . import mapping_overlay
 
 
 
@@ -50,10 +60,49 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry):
         return OptionsFlowHandler(config_entry)
 
+    @staticmethod
+    def _normalize_home_name(name: str | None, home_id) -> str:
+        """Normalize home names so spaces/NBSP don't break the config UI.
+
+        Issue #274: Meiju home names containing whitespace could make the
+        select_homes step fail hard (HA restart). Keep a readable label while
+        always using numeric home ids as option values.
+        """
+        if name is None:
+            return f"家庭 {home_id}"
+        normalized = re.sub(r"\s+", " ", str(name), flags=re.UNICODE).strip()
+        return normalized or f"家庭 {home_id}"
+
     def _get_home_name(self, home_info, home_id) -> str:
         if isinstance(home_info, dict):
-            return home_info.get("name", f"家庭 {home_id}")
-        return str(home_info) if home_info else f"家庭 {home_id}"
+            raw = home_info.get("name") or home_info.get("homeName")
+        else:
+            raw = home_info
+        return self._normalize_home_name(raw, home_id)
+
+    def _homes_select_schema(self, default_selected: list[str] | None = None):
+        """Build a multi-select schema keyed by home id (not display name)."""
+        options: list[SelectOptionDict] = []
+        for home_id, home_info in self._homes.items():
+            options.append(
+                SelectOptionDict(
+                    value=str(home_id),
+                    label=self._get_home_name(home_info, home_id),
+                )
+            )
+        if default_selected is None:
+            default_selected = [opt["value"] for opt in options]
+        return vol.Schema(
+            {
+                vol.Required(CONF_SELECTED_HOMES, default=default_selected): SelectSelector(
+                    SelectSelectorConfig(
+                        options=options,
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
+            }
+        )
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -140,7 +189,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_select_homes(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """家庭选择步骤"""
         errors: dict[str, str] = {}
-        
+
         if user_input is not None:
             selected_homes = user_input.get(CONF_SELECTED_HOMES, [])
             if not selected_homes:
@@ -148,8 +197,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 selected_home_ids = []
                 for home_id in selected_homes:
-                    for key in [home_id, str(home_id), int(home_id) if str(home_id).isdigit() else None]:
-                        if key is not None and key in self._homes and key not in selected_home_ids:
+                    for key in [
+                        home_id,
+                        str(home_id),
+                        int(home_id) if str(home_id).isdigit() else None,
+                    ]:
+                        if (
+                            key is not None
+                            and key in self._homes
+                            and key not in selected_home_ids
+                        ):
                             selected_home_ids.append(key)
                             break
 
@@ -162,72 +219,48 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         entry_homes = entry.data.get(CONF_SELECTED_HOMES, [])
                         for home_id in entry_homes:
                             configured_homes.add(str(home_id))
-                    
+
                     for home_id in selected_home_ids:
                         if str(home_id) in configured_homes:
                             errors["base"] = "home_already_configured"
                             break
-                    
-                    if errors.get("base"):
-                        home_options = {}
-                        for home_id, home_info in self._homes.items():
-                            home_options[str(home_id)] = self._get_home_name(home_info, home_id)
-                        default_selected = list(home_options.keys())
-                        return self.async_show_form(
-                            step_id="select_homes",
-                            data_schema=vol.Schema({
-                                vol.Required(CONF_SELECTED_HOMES, default=default_selected): vol.All(
-                                    cv.multi_select(home_options)
-                                )
-                            }),
-                            errors=errors,
+
+                    if not errors.get("base"):
+                        first_home_id = selected_home_ids[0]
+                        first_home_name = self._home_names.get(
+                            first_home_id, f"家庭 {first_home_id}"
                         )
-                    
-                    first_home_id = selected_home_ids[0]
-                    first_home_name = self._home_names.get(first_home_id, f"家庭 {first_home_id}")
 
-                    total_devices = 0
-                    appliances_info = {}
-                    for home_id in selected_home_ids:
-                        appliances = await self._cloud.list_appliances(home_id)
-                        if appliances:
-                            total_devices += len(appliances)
-                            for appliance_code, info in appliances.items():
-                                appliances_info[appliance_code] = info
+                        total_devices = 0
+                        appliances_info = {}
+                        for home_id in selected_home_ids:
+                            appliances = await self._cloud.list_appliances(home_id)
+                            if appliances:
+                                total_devices += len(appliances)
+                                for appliance_code, info in appliances.items():
+                                    appliances_info[appliance_code] = info
 
-                    self._config_data = {
-                        CONF_TYPE: CONF_ACCOUNT,
-                        CONF_ACCOUNT: self._user_input[CONF_ACCOUNT],
-                        CONF_PASSWORD: self._user_input[CONF_PASSWORD],
-                        CONF_SERVER: self._user_input[CONF_SERVER],
-                        CONF_SELECTED_HOMES: [first_home_id],
-                        "home_name": first_home_name,
-                        "all_selected_homes": selected_home_ids,
-                        "home_names": {str(hid): self._home_names.get(hid, f"家庭 {hid}") for hid in selected_home_ids}
-                    }
-                    self._total_devices = total_devices
-                    self._total_homes = len(selected_home_ids)
-                    self._appliances_info = appliances_info
-                    return await self.async_step_download()
+                        self._config_data = {
+                            CONF_TYPE: CONF_ACCOUNT,
+                            CONF_ACCOUNT: self._user_input[CONF_ACCOUNT],
+                            CONF_PASSWORD: self._user_input[CONF_PASSWORD],
+                            CONF_SERVER: self._user_input[CONF_SERVER],
+                            CONF_SELECTED_HOMES: [first_home_id],
+                            "home_name": first_home_name,
+                            "all_selected_homes": selected_home_ids,
+                            "home_names": {
+                                str(hid): self._home_names.get(hid, f"家庭 {hid}")
+                                for hid in selected_home_ids
+                            },
+                        }
+                        self._total_devices = total_devices
+                        self._total_homes = len(selected_home_ids)
+                        self._appliances_info = appliances_info
+                        return await self.async_step_download()
 
-        # 构建家庭选择选项
-        home_options = {}
-        for home_id, home_info in self._homes.items():
-            _LOGGER.debug(f"Processing home_id: {home_id}, home_info: {home_info}, type: {type(home_info)}")
-            home_options[str(home_id)] = self._get_home_name(home_info, home_id)
-
-        # 默认全选
-        default_selected = list(home_options.keys())
-        _LOGGER.debug(f"Home options: {home_options}")
-        _LOGGER.debug(f"Default selected: {default_selected}")
-        
         return self.async_show_form(
             step_id="select_homes",
-            data_schema=vol.Schema({
-                vol.Required(CONF_SELECTED_HOMES, default=default_selected): vol.All(
-                    cv.multi_select(home_options)
-                )
-            }),
+            data_schema=self._homes_select_schema(),
             errors=errors,
         )
 
@@ -366,21 +399,253 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry):
         self._config_entry = config_entry
+        self._mapping_device_id: str | None = None
 
     async def async_step_init(self, user_input=None, error=None):
         """初始化选项流程"""
         if user_input is not None:
             if user_input["option"] == "change_credentials":
                 return await self.async_step_change_credentials()
-        
+            if user_input["option"] == "mapping_override":
+                return await self.async_step_mapping_select_device()
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Required("option", default="change_credentials"): vol.In({
-                    "change_credentials": "修改账号密码",
-                })
+                vol.Required("option", default="change_credentials"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(
+                                value="change_credentials",
+                                label="修改账号密码 / Change credentials",
+                            ),
+                            SelectOptionDict(
+                                value="mapping_override",
+                                label="设备 Mapping 覆盖 / Device mapping overlay",
+                            ),
+                        ],
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
             }),
-            errors=error
+            errors=error or {},
+        )
+
+    def _device_options(self) -> list[SelectOptionDict]:
+        bucket = (
+            self.hass.data.get(DOMAIN, {})
+            .get("accounts", {})
+            .get(self._config_entry.entry_id, {})
+        )
+        device_list = bucket.get("device_list") or {}
+        overrides = mapping_overlay.load_overrides(self.hass)
+        options: list[SelectOptionDict] = []
+        for device_id, info in device_list.items():
+            did = str(device_id)
+            name = (info or {}).get("name") or f"device {did}"
+            dtype = (info or {}).get("type")
+            if isinstance(dtype, int):
+                type_label = f"T0x{dtype:02X}"
+            else:
+                type_label = str(dtype or "?")
+            sn8 = (info or {}).get("sn8") or ""
+            profile = overrides.get(did)
+            suffix = f" [{profile}]" if profile else ""
+            label = f"{name} | {type_label} | sn8={sn8} | id={did}{suffix}"
+            options.append(SelectOptionDict(value=did, label=label))
+        options.sort(key=lambda item: item["label"])
+        return options
+
+    async def _finish_mapping_and_reload(self):
+        await self.hass.config_entries.async_reload(self._config_entry.entry_id)
+        return self.async_create_entry(title="", data={})
+
+    async def async_step_mapping_select_device(self, user_input=None):
+        errors: dict[str, str] = {}
+        options = await self.hass.async_add_executor_job(self._device_options)
+        if not options:
+            return self.async_abort(reason="no_devices_loaded")
+
+        if user_input is not None:
+            self._mapping_device_id = str(user_input["device_id"])
+            return await self.async_step_mapping_action()
+
+        return self.async_show_form(
+            step_id="mapping_select_device",
+            data_schema=vol.Schema({
+                vol.Required("device_id"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=options,
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            }),
+            errors=errors,
+        )
+
+    async def async_step_mapping_action(self, user_input=None):
+        if user_input is not None:
+            action = user_input["action"]
+            if action == "pick_profile":
+                return await self.async_step_mapping_pick_profile()
+            if action == "paste_json":
+                return await self.async_step_mapping_paste_json()
+            if action == "clear":
+                return await self.async_step_mapping_clear()
+
+        current = None
+        if self._mapping_device_id:
+            overrides = await self.hass.async_add_executor_job(
+                mapping_overlay.load_overrides, self.hass
+            )
+            current = overrides.get(self._mapping_device_id)
+        description_placeholders = {
+            "device_id": self._mapping_device_id or "",
+            "current_profile": current or "(none)",
+        }
+        return self.async_show_form(
+            step_id="mapping_action",
+            data_schema=vol.Schema({
+                vol.Required("action", default="pick_profile"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(
+                                value="pick_profile",
+                                label="选用已有 profile / Use existing profile",
+                            ),
+                            SelectOptionDict(
+                                value="paste_json",
+                                label="粘贴 JSON 新建/更新 / Paste JSON",
+                            ),
+                            SelectOptionDict(
+                                value="clear",
+                                label="清除该设备覆盖 / Clear override",
+                            ),
+                        ],
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
+            }),
+            description_placeholders=description_placeholders,
+        )
+
+    async def async_step_mapping_pick_profile(self, user_input=None):
+        errors: dict[str, str] = {}
+        profiles = await self.hass.async_add_executor_job(
+            mapping_overlay.list_profiles, self.hass
+        )
+        if not profiles:
+            return self.async_abort(reason="no_profiles")
+
+        if user_input is not None:
+            profile_id = user_input["profile_id"]
+            error = await self.hass.async_add_executor_job(
+                mapping_overlay.set_device_override,
+                self.hass,
+                self._mapping_device_id,
+                profile_id,
+            )
+            if error:
+                errors["base"] = error
+            else:
+                return await self._finish_mapping_and_reload()
+
+        return self.async_show_form(
+            step_id="mapping_pick_profile",
+            data_schema=vol.Schema({
+                vol.Required("profile_id"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(value=pid, label=pid)
+                            for pid in profiles
+                        ],
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            }),
+            errors=errors,
+            description_placeholders={
+                "device_id": self._mapping_device_id or "",
+            },
+        )
+
+    async def async_step_mapping_paste_json(self, user_input=None):
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            payload, error = mapping_overlay.parse_profile_json_text(
+                user_input.get("profile_json") or ""
+            )
+            if error:
+                errors["base"] = error
+            else:
+                save_error = await self.hass.async_add_executor_job(
+                    mapping_overlay.save_profile, self.hass, payload
+                )
+                if save_error:
+                    errors["base"] = save_error
+                else:
+                    bind_error = await self.hass.async_add_executor_job(
+                        mapping_overlay.set_device_override,
+                        self.hass,
+                        self._mapping_device_id,
+                        payload["profile"],
+                    )
+                    if bind_error:
+                        errors["base"] = bind_error
+                    else:
+                        return await self._finish_mapping_and_reload()
+
+        example = (
+            '{\n'
+            '  "profile": "clivet_cassette",\n'
+            '  "device_type": "T0xCC",\n'
+            '  "mode": "extend",\n'
+            '  "mapping": {\n'
+            '    "entities": {\n'
+            '      "climate": {\n'
+            '        "thermostat": {\n'
+            '          "fan_modes": {"1": {"wind_speed_level": "1"}}\n'
+            '        }\n'
+            '      }\n'
+            '    }\n'
+            '  }\n'
+            '}'
+        )
+        return self.async_show_form(
+            step_id="mapping_paste_json",
+            data_schema=vol.Schema({
+                vol.Required("profile_json", default=example): TextSelector(
+                    TextSelectorConfig(
+                        multiline=True,
+                        type=TextSelectorType.TEXT,
+                    )
+                )
+            }),
+            errors=errors,
+            description_placeholders={
+                "device_id": self._mapping_device_id or "",
+            },
+        )
+
+    async def async_step_mapping_clear(self, user_input=None):
+        if user_input is not None:
+            if user_input.get("confirm"):
+                await self.hass.async_add_executor_job(
+                    mapping_overlay.clear_device_override,
+                    self.hass,
+                    self._mapping_device_id,
+                )
+                return await self._finish_mapping_and_reload()
+            return await self.async_step_mapping_action()
+
+        return self.async_show_form(
+            step_id="mapping_clear",
+            data_schema=vol.Schema({
+                vol.Required("confirm", default=False): bool,
+            }),
+            description_placeholders={
+                "device_id": self._mapping_device_id or "",
+            },
         )
 
     async def async_step_change_credentials(self, user_input=None, error=None):

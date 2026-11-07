@@ -26,6 +26,7 @@ Get devices from MSmartHome/Midea Meiju homes through the network and control th
 - T0x26 Bath Heater
 - T0x3D Water Heater
 - T0x44 Smart Thermostat
+- T0x5D Ice Maker
 - T0x9B Steam oven
 - T0x9C Integrated Gas Stove
 - T0xA1 Dehumidifier
@@ -86,6 +87,45 @@ Mapping files are located under `device_mapping`, with one mapping file for each
 - water_heater
 
 The example configuration `22012227` demonstrates how to map device attributes to various Home Assistant entities above.
+
+### External mapping overlay (per device)
+
+When multiple appliances share the same `device_type` / `sn8` / `subtype` but need different entity mappings (e.g. Clivet indoor units), open **Configure → Options → Device mapping overlay**:
+
+1. Select a device (name / type / device_id)
+2. **Paste JSON** to create/update a profile, or **use an existing profile**
+3. Save; the config entry reloads automatically
+
+Data lives under `.storage/midea_auto_cloud/mappings/` (survives integration upgrades):
+
+```text
+.storage/midea_auto_cloud/mappings/
+  overrides.json          # device_id -> profile_id
+  <profile_id>.json
+```
+
+Example profile (`mode: extend` merges onto builtin mapping; `replace` replaces it):
+
+```json
+{
+  "profile": "clivet_cassette",
+  "device_type": "T0xCC",
+  "mode": "extend",
+  "mapping": {
+    "entities": {
+      "climate": {
+        "thermostat": {
+          "fan_modes": { "1": {"wind_speed_level": "1"} }
+        }
+      }
+    }
+  }
+}
+```
+
+Platform keys under `entities` are strings (`climate` / `switch`, …). Set a key to `null` in an extend overlay to remove that builtin entry.
+
+Once your custom profile works on your setup, please consider upstreaming the reusable bits into `device_mapping/` (by `device_type` / `sn8` / `subtype`) via a Pull Request so others can benefit. External overlays are not guaranteed to stay aligned with builtin mappings forever.
 
 ## Donation
 
